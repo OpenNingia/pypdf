@@ -921,6 +921,11 @@ class PdfWriter(PdfDocCommon):
     ) -> None:
         # Calculate rectangle dimensions
         _rct = cast(RectangleObject, annotation[AA.Rect])
+        has_indirect = len([x for x in _rct if isinstance(x, IndirectObject)]) > 0
+        if has_indirect:
+            # If the rectangle contains indirect objects, we need to resolve them
+            _values = cast(Tuple[float,float,float,float], [x.get_object() if isinstance(x, IndirectObject) else x for x in _rct])
+            _rct = RectangleObject(_values)
         rct = RectangleObject((0, 0, abs(_rct[2] - _rct[0]), abs(_rct[3] - _rct[1])))
 
         # Extract font information
