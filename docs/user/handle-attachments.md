@@ -71,3 +71,52 @@ embedded_file.write("output.pdf")
 
 The same functionality is available if you iterate over the attachments of a writer
 using `writer.attachment_list`.
+
+## Delete Attachments
+
+To delete an existing attachment, use the following code:
+
+```python
+from pypdf import PdfWriter
+
+writer = PdfWriter(clone_from="example.pdf")
+attachment = writer.add_attachment(filename="test.txt", data=b"Hello World!")
+attachment.delete()
+assert list(writer.attachment_list) == []
+```
+
+Please note that this will not delete the associated file relationship
+if it exists. Deleting them as well would require us to know where this has
+been defined, which requires more complexity. For now, please consider looking
+for the corresponding definition yourself and delete it from the array.
+
+### PDF/A compliance
+
+The following example shows how to add an attachment to a PDF/A-3B compliant document
+without breaking compliance:
+
+```python
+from pypdf import PdfWriter
+from pypdf.constants import AFRelationship
+from pypdf.generic import create_string_object, ArrayObject, NameObject
+
+writer = PdfWriter(clone_from="pdf_a3b.pdf")
+attachment = writer.add_attachment(filename="test.txt", data="Hello World!")
+attachment.subtype = NameObject("/text/plain")
+attachment.associated_file_relationship = NameObject(AFRelationship.SUPPLEMENT)
+attachment.alternative_name = create_string_object(attachment.name)
+
+if "/AF" in writer.root_object:
+    af = writer.root_object["/AF"].get_object()
+else:
+    af = ArrayObject()
+    writer.root_object["/AF"] = af
+af.append(attachment.pdf_object.indirect_reference)
+
+writer.write("pdf_a3b_output.pdf")
+```
+
+This example marks a relationship of the attachment to the whole document.
+Alternatively, it can be added to most of the other PDF objects as well.
+For details, see the corresponding PDF specification, like section 14.13
+of the PDF 2.0 specification.
