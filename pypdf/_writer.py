@@ -936,6 +936,13 @@ class PdfWriter(PdfDocCommon):
                 source=__name__,
                 xobject_name=xobject_name,
             )
+        # Resolve indirect-object offsets: annotation /Rect entries may be
+        # stored as references, in which case rect[0]/rect[1] arrive here
+        # unresolved and Transformation.translate's arithmetic blows up.
+        if isinstance(x_offset, IndirectObject):
+            x_offset = x_offset.get_object()
+        if isinstance(y_offset, IndirectObject):
+            y_offset = y_offset.get_object()
         xobject_cm = Transformation().translate(x_offset, y_offset)
         xobject_drawing_commands = f"q\n{xobject_cm._to_cm()}\n{xobject_name} Do\nQ".encode()
         self._merge_content_stream_to_page(page, xobject_drawing_commands)
