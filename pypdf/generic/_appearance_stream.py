@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from enum import IntEnum
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Tuple, cast
 
 from .._codecs import fill_from_encoding
 from .._codecs.core_font_metrics import CORE_FONT_METRICS
@@ -547,6 +547,12 @@ class TextStreamAppearance(BaseStreamAppearance):
         """
         # Calculate rectangle dimensions
         _rectangle = cast(RectangleObject, annotation[AnnotationDictionaryAttributes.Rect])
+
+        has_indirect = len([x for x in _rectangle if isinstance(x, IndirectObject)]) > 0
+        if has_indirect:
+            # If the rectangle contains indirect objects, we need to resolve them
+            _values = cast(Tuple[float,float,float,float], [x.get_object() if isinstance(x, IndirectObject) else x for x in _rectangle])
+            _rectangle = RectangleObject(_values)
         rectangle = RectangleObject((0, 0, abs(_rectangle[2] - _rectangle[0]), abs(_rectangle[3] - _rectangle[1])))
 
         # Get default appearance dictionary from annotation
