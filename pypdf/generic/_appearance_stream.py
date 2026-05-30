@@ -313,7 +313,17 @@ class TextStreamAppearance(BaseStreamAppearance):
             if any(len(c) >= 2 for c in encoded_line):
                 ap_stream += b"<" + (b"".join(encoded_line)).hex().encode() + b"> Tj\n"
             else:
-                ap_stream += b"(" + b"".join(encoded_line) + b") Tj\n"
+                # Escape only the bytes that delimit a PDF literal string. Done
+                # here (not on the source text) so the "<hex> Tj" branch above
+                # stays byte-exact -- escaping the text up-front would leak
+                # backslash glyphs into hex-encoded output.
+                literal = (
+                    b"".join(encoded_line)
+                    .replace(b"\\", b"\\\\")
+                    .replace(b"(", b"\\(")
+                    .replace(b")", b"\\)")
+                )
+                ap_stream += b"(" + literal + b") Tj\n"
         ap_stream += b"ET\nQ\nEMC\nQ\n"
         return ap_stream
 
@@ -580,8 +590,11 @@ class TextStreamAppearance(BaseStreamAppearance):
             text = field.get("/V", "")
             selection = []
 
-        # Escape parentheses (PDF 1.7 reference, table 3.2, Literal Strings)
-        text = text.replace("\\", "\\\\").replace("(", r"\(").replace(")", r"\)")
+        # NB: parentheses / backslashes are NOT escaped here. Escaping is done
+        # only where a PDF *literal* string is emitted (the "(...) Tj" branch in
+        # the stream builder below). Escaping up-front corrupts the "<hex> Tj"
+        # path: the backslash bytes get hex-encoded and render as literal
+        # glyphs (e.g. "(Katana)" would render as "\(Katana\)").
 
         # Derive font name, size and color from the default appearance. Also set
         # user-provided font name and font size in the default appearance, if given.
